@@ -10,7 +10,7 @@ public class Main {
 
         // 2. Mostra menu iniziale
         FootballBot bot = new FootballBot(Config.getBotToken());
-        bot.start();
+
 
         // 3. Avvia Long Polling
         try (TelegramBotsLongPollingApplication botsApp = new TelegramBotsLongPollingApplication()) {
@@ -23,4 +23,4 @@ public class Main {
             e.printStackTrace();
         }
     }
-}// dadaad
+}

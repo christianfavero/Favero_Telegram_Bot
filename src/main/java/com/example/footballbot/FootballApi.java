@@ -61,27 +61,66 @@ public class FootballApi {
 
     /** Form ultimi 5 match di una squadra */
     public static String getForm(int teamId) {
-        String json = makeRequest("/teams/" + teamId + "/matches?limit=5");
+        // IMPORTANTE: aggiungi status=FINISHED per prendere solo partite terminate
+        String json = makeRequest("/teams/" + teamId + "/matches?status=FINISHED&limit=5");
         if (json == null) return "❌ Nessuna risposta dall'API.";
 
         try {
             JsonArray matches = JsonParser.parseString(json).getAsJsonObject().getAsJsonArray("matches");
-            if (matches.isEmpty()) return "📭 Nessuna partita recente.";
+            if (matches.isEmpty()) return "📭 Nessuna partita recente completata.";
 
-            StringBuilder sb = new StringBuilder("📊 Ultimi risultati:\n");
+            StringBuilder sb = new StringBuilder("📊 *Ultimi 5 risultati:*\n\n");
+
             for (int i = 0; i < matches.size(); i++) {
                 JsonObject m = matches.get(i).getAsJsonObject();
+
+                // Informazioni squadre
                 String home = m.getAsJsonObject("homeTeam").get("name").getAsString();
                 String away = m.getAsJsonObject("awayTeam").get("name").getAsString();
-                String score = m.getAsJsonObject("score").get("fullTime").toString();
-                sb.append(String.format("⚽ %s vs %s → %s\n", home, away, score));
+
+                // Score
+                JsonObject scoreObj = m.getAsJsonObject("score");
+                JsonObject fullTime = scoreObj.getAsJsonObject("fullTime");
+
+                Integer homeGoals = fullTime.get("home").isJsonNull() ? null : fullTime.get("home").getAsInt();
+                Integer awayGoals = fullTime.get("away").isJsonNull() ? null : fullTime.get("away").getAsInt();
+
+                String score = (homeGoals != null && awayGoals != null)
+                        ? homeGoals + "-" + awayGoals
+                        : "N/D";
+
+                // Data
+                String date = m.get("utcDate").getAsString();
+                // Formatta la data (prende solo la parte della data, non l'ora)
+                String formattedDate = date.split("T")[0];
+
+                // Risultato (W/D/L) rispetto alla squadra
+                String result = "";
+                if (homeGoals != null && awayGoals != null) {
+                    int teamIdHome = m.getAsJsonObject("homeTeam").get("id").getAsInt();
+                    boolean isHome = (teamIdHome == teamId);
+
+                    if (homeGoals > awayGoals) {
+                        result = isHome ? "✅ V" : "❌ P";
+                    } else if (homeGoals < awayGoals) {
+                        result = isHome ? "❌ P" : "✅ V";
+                    } else {
+                        result = "➖ P";
+                    }
+                }
+
+                sb.append(String.format("%s ⚽ *%s* vs *%s* - %s\n",
+                        result, home, away, score));
+                sb.append(String.format("   📅 %s\n\n", formattedDate));
             }
+
             return sb.toString();
         } catch (Exception e) {
             e.printStackTrace();
             return "❌ Errore nel processare i risultati.";
         }
     }
+
 
     /** Top teams di una lega */
     public static String getTopTeams(int leagueId) {
@@ -213,23 +252,43 @@ public class FootballApi {
     }
 
     /** Info su una squadra */
-    public static String getTeamInfo(String teamName) {
-        Integer teamId = TeamResolver.resolveTeamId(teamName, 2021); // default Premier League
-        if (teamId == null) return "❌ Squadra non trovata!";
+    /** Info su una squadra */
+    public static String getTeamInfo(String teamIdStr, String leagueName) {
+        // Ora riceve direttamente l'ID della squadra come stringa
+        Integer teamId;
+        try {
+            teamId = Integer.parseInt(teamIdStr);
+        } catch (NumberFormatException e) {
+            return "❌ ID squadra non valido";
+        }
+
+        // Richiesta API diretta con l'ID
         String json = makeRequest("/teams/" + teamId);
         if (json == null) return "❌ Nessuna risposta dall'API.";
 
         try {
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-            return String.format("⚽ %s\nStadio: %s\nFondazione: %s",
-                    obj.get("name").getAsString(),
-                    obj.get("venue").getAsString(),
-                    obj.get("founded").getAsString());
+            String teamName = obj.get("name").getAsString();
+            String venue = obj.get("venue").getAsString();
+            String founded = obj.get("founded").getAsString();
+
+            // Costruisci la risposta
+            StringBuilder response = new StringBuilder();
+            response.append(String.format("⚽ *%s*\n", teamName));
+            response.append(String.format("🏟️ Stadio: %s\n", venue));
+            response.append(String.format("📅 Fondazione: %s", founded));
+
+            if (leagueName != null) {
+                response.append(String.format("\n🏆 Lega: %s", leagueName));
+            }
+
+            return response.toString();
         } catch (Exception e) {
             e.printStackTrace();
             return "❌ Errore nel processare le informazioni della squadra.";
         }
     }
+
 
     /** Info su uno stadio */
     public static String getStadiumInfo(String stadiumName) {
