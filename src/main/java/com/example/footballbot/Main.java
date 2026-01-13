@@ -15,7 +15,7 @@ public class Main {
         // 3. Avvia Long Polling
         try (TelegramBotsLongPollingApplication botsApp = new TelegramBotsLongPollingApplication()) {
             botsApp.registerBot(Config.getBotToken(), bot);
-            System.out.println("✅ Bot avviato correttamente!");
+             System.out.println("✅ Bot avviato correttamente!");
 
             // Mantieni il bot in vita
             Thread.currentThread().join();
